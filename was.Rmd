@@ -1,0 +1,297 @@
+---
+title: "Wielowymiarowa analiza statystyczna w R"
+author: "Łukasz Wawrowski"
+date: "20 stycznia 2016"
+output: html_document
+---
+
+## Wielowymiarowa analiza statystyczna
+
+Metody analizy wielu obiektów opisanych przez wiele cech.
+
+Wybrane metody:
+
+* **metody porządkowania (rankingi)**
+* **metody grupowania (analiza skupień)**
+* regresja 
+* metody redukcji wymiarów (analiza czynnikowa)
+* analiza korespondencji
+* analiza dyskryminacyjna
+
+## Zbiór danych
+
+Dane opisują pewne aspekty jakości życia w powiatach województwa wielkopolskiego w roku 2012:
+
+* Jednostki nowo zarejestrowane w rejestrze REGON na 10 tys. ludności (_nowe_firmy_)
+* Stopa bezrobocia rejestrowanego (_stopa_bezr_)
+* Przeciętne miesięczne wynagrodzenie brutto (_srednie_wynagr_)
+* Drogi gminne i powiatowe o twardej nawierzchni na 100km2 (_drogi_twarde_)
+* Zgony z powodu nowotworów ogółem na 100 tys. ludności (_zgony_nowotwor_)
+* Przeciętna powierzchnia użytkowa mieszkania na 1 osobę (_pow_mieszkania_)
+
+Źródło: [Bank Danych Lokalnych](http://stat.gov.pl/bdl/app/strona.html?p_name=indeks)
+
+## Porządkowanie liniowe
+
+Utworzenie rankingu musi być poprzedzone szeregiem przekształceń cech.
+
+### Weryfikacja korelacyjna 
+
+* metoda odwróconej macierzy korelacji - sprawdzenie czy cechy nie wnoszą tej samej informacji do analizy. 
+
+### Ujednolicenie charakteru cech
+
+* stymulanta - wyższe wartości cechy są pożądane
+* destymulanta - niższe wartości cechy są pożądane
+* nominanta - wartości z określonego przedziału są pożądane
+
+Ujednolicenie charakteru cech zwykle polega na przekształceniu wszystkich zmiennych do stymulant. W tym celu można wykorzystać takie metody jak:
+
+1. Przekształcenie ilorazowe
+* dla destymulant
+
+$$x_{ij}^{S}=\frac{1}{x_{ij}^{D}}$$
+
+* dla nominant
+
+$$x_{ij}^{S}=\frac{min\{x_j^N;x_{ij}^{N}\}}{max\{x_j^N;x_{ij}^{N}\}}$$
+
+gdzie: $x_j^N$ - pożądana wartość cechy.
+
+Przekształcenia ilorazowego nie można zastosować w przypadku, gdy wśród transformowanych wartości znajduje się zero.
+
+2. Przekształcenie różnicowe
+
+* dla destymulant
+
+$$x_{ij}^{S}=max\{x_{ij}^D\}-x_{ij}^{D}$$
+
+* dla nominant
+
+$$x_{ij}^{S}=-|x_{ij}^{N}-x_j^N|$$
+
+
+gdzie: $x_j^N$ - pożądana wartość cechy.
+
+Podczas ujednolicania charakteru zmiennych należy stosować konsekwentnie wybraną metodę.
+
+### Normalizacja - pozbawienie mian (jednostek), w których wyrażone są cechy diagnostyczne
+
+1. standaryzacja - nowa zmienna ma średnią równą 0 i odchylenie standardowe równe 1
+
+$$z_{ij}=\frac{x_{ij}-\bar{x}_j}{s_j}$$
+
+2. unitaryzacja zerowana - wartości nowej zmiennej znajdują się w przedziale $<0;1>$
+
+* dla stymulant
+
+$$z_{ij}=\frac{x_{ij}-min\{x_{ij}\}}{max\{x_{ij}\}-min\{x_{ij}\}}$$
+
+* dla destymulant
+
+$$z_{ij}=\frac{max\{x_{ij}\}-x_{ij}}{max\{x_{ij}\}-min\{x_{ij}\}}$$
+
+* dla nominant
+
+jeśli $x_{ij} \leq c_{ij}$ wówczas $$z_{ij}=\frac{x_{ij}-min\{x_{ij}\}}{c_{ij}-min\{x_{ij}\}}$$
+
+jeśli $x_{ij} > c_{ij}$ wówczas $$z_{ij}=\frac{x_{ij}-max\{x_{ij}\}}{c_{ij}-max\{x_{ij}\}}$$
+
+gdzie: $c_{ij}$ - pożądana wartość cechy.
+
+Efektem normalizacji jest znormalizowana macierz danych.
+
+### Miernik syntetyczny
+
+1. Bezwzorcowy
+
+$$m_b=\frac{1}{p}\sum\limits_{j=1}^{p}{z_{ij}}$$
+
+2. Wzorcowy
+
+$$m_w=1-\frac{d_{i0}}{d_0}$$
+
+gdzie: $d_{i0}=\sqrt{\sum\limits_{j=1}^{k}{(z_{ij}-z_{0j})^2}}$ - odległość obiektu od obiektu wzorcowego, a 
+
+$d_0=\bar{d}+2S_0$, gdzie $\bar{d}=\frac{1}{m}\sum\limits_{i=1}^{m}{d_{i0}}$ oraz $S_0=\sqrt{\frac{1}{m}\sum\limits_{i=1}^{m}{(d_{i0}-\bar{d})^2}}$.
+
+## Analiza skupień
+
+Podział obiektów na podzbiory według kryterium podobieństwa. 
+
+### Algorytm metody hierarchicznej (metoda Warda)
+
+1. każdy obiekt traktowany jest jako klasa jednoelementowa
+2. na podstawie znormalizowanych wartości cech wyznacza się macierz odległości $D$
+3. w macierzy odległości wyszukuje się wartość minimalną
+4. obiekty pomiędzy którymi ta odległość jest najmniejsza łączy się klasę dwuelementową
+5. wyznacza się odległość nowoutworzonej klasy od pozostałych obiektów
+6. Kroki 3-5 powtarza się aż do momentu, gdy wszystkie obiekty utworzą jedną grupę
+
+### Algorytm metody iteracyjnej (metoda k-średnich)
+
+1. Ustala się z góry liczbę klas (np. na podstawie metody Warda)
+2. Początkowo obiekty przypisane są do odpowiednich klas losowo
+3. Ustala się macierz środków ciężkości klas (centroidów)
+4. Oblicza się dla wstępnych klas zmienność wewnątrzskupieniową
+5. Analizuje się każdy obiekt i przydziela się go do najbliższego centroidu
+6. Jeżeli obiekt zmienia skupienie, to ponownie oblicza się zmienność wewnątrzskupieniową aż do osiągnięcia stabilizacji
+
+## Wczytanie pakietów
+
+```{r, warning=FALSE, message=FALSE}
+library(dplyr)
+library(knitr)
+```
+
+## Budowanie rankingu w R
+
+Wczytujemy dane do R
+
+```{r}
+load("dane.RData")
+```
+
+Dane opisują pewne aspekty jakości życia w powiatach województwa wielkopolskiego w roku 2012:
+
+* Jednostki nowo zarejestrowane w rejestrze REGON na 10 tys. ludności (_nowe_firmy_)
+* Stopa bezrobocia rejestrowanego (_stopa_bezr_)
+* Przeciętne miesięczne wynagrodzenie brutto (_srednie_wynagr_)
+* Drogi gminne i powiatowe o twardej nawierzchni na 100km2 (_drogi_twarde_)
+* Zgony z powodu nowotworów ogółem na 100 tys. ludności (_zgony_nowotwor_)
+* Przeciętna powierzchnia użytkowa mieszkania na 1 osobę (_pow_mieszkania_)
+
+Źródło: [Bank Danych Lokalnych](http://stat.gov.pl/bdl/app/strona.html?p_name=indeks)
+
+Przeprowadzamy weryfikację korelacyjną
+
+```{r}
+solve(cor(dane[,3:8])) %>%
+  kable
+```
+
+Wartości znajdujące się na przekątnej odwróconej macierzy korelacji są mniejsze od 10 - nie zachodzi współliniowość zmiennych, w związku z czym wszystkie cechy można uwzględnić w analizie.
+
+Następnie ujednolicamy charakter cech zamieniając destymulanty na stymulanty
+
+```{r}
+dane_u <- dane %>%
+  mutate(stopa_bezr=1/stopa_bezr,
+         zgony_nowotwor=1/zgony_nowotwor)
+```
+
+a następnie przeprowadzamy standaryzację
+
+```{r}
+dane_z <- scale(dane_u[,3:8])
+row.names(dane_z) <- dane_u$nazwa
+```
+
+### Miernik bezwzorcowy
+
+Na podstawie znormalizowanych danych obliczamy wartość miernika bezwzorcowego
+
+```{r}
+miernik_b <- rowMeans(dane_z)
+wynik_b <- cbind(select(dane_u,teryt,nazwa), miernik_b)
+```
+
+I wyświetlamy wartości posortowane rosnąco
+
+```{r}
+wynik_b %>%
+  arrange(desc(miernik_b)) %>%
+  kable
+```
+
+Według wartości miernika bezwzorcowego najlepszymi powiatami województwa wielkopolskiego ze względu na wybrane cechy diagnostyczne są miasto Poznań, powiat poznański, miasto Leszno, powiat leszczyński, miasto Kalisz. Z kolei ostatnie miejsca rankingu należą do powiatów złotowskiego, wągrowieckiego, krotoszyńskiego, pilskiego oraz gnieźnieńskiego.
+
+### Miernik wzorcowy
+
+W mierniku wzorcowym sprawdzamy odległość danego obiektu opisanego przez cechy diagnostyczne od obiektu idealnego. Ten obiekt może przyjmować wartości maksymalne analizowanych cech lub inne wartości określone przez literaturę.
+
+```{r}
+wzorzec <- apply(dane_z,2,max)
+
+dane_w <- rbind(dane_z, wzorzec)
+odl_w <- as.matrix(dist(dane_w, method="euclidean"))
+
+d_i0 <- odl_w[1:35,36]
+d_0 <- mean(d_i0) + 2*sd(d_i0)
+
+miernik_w <- 1 - d_i0/d_0
+
+wynik_w <- cbind(select(dane_u,teryt,nazwa), miernik_w)
+
+wynik_w %>%
+  arrange(desc(miernik_w)) %>%
+  kable
+
+```
+
+Otrzymane wyniki są bardzo podobne do tych otrzymanych z wykorzystaniem miernika bezwzorcowego.
+
+## Klasyfikacja powiatów w R
+
+Rozpoczynamy od hierarchicznej metody Warda. Na podstawie macierzy znormalizowanej wyznaczamy macierz odległości
+
+```{r}
+odl_m <- dist(dane_z, method="euclidean")
+ward <- hclust(odl_m, method="ward.D")
+plot(ward)
+```
+
+Na podstawie dendrogramu możemy wyróżnić 3 skupienia
+
+```{r}
+grupy <- cutree(ward, k=3)
+plot(ward)
+rect.hclust(ward, k=3, border = "red")
+```
+
+Dołączamy informacje o numerze skupienia do oryginalnego zbioru danych, żeby na tej podstawie scharakteryzować grupy
+
+```{r}
+dane_s <- dane %>%
+  mutate(ward3=grupy)
+
+dane_s %>%
+  select(-teryt, -nazwa) %>%
+  group_by(ward3) %>%
+  summarise_each(funs(mean)) %>%
+  as.data.frame %>%
+  kable
+
+```
+
+W jednym skupieniu znajdują się miasta na prawach powiatu oprócz Konina oraz powiat poznański. W pierwszym skupieniu znajdują się powiaty z wysoką stopą bezrobocia oraz niską powierzchnią mieszkania. Drugie skupienie charakteryzuje się najniższym odsetkiem nowych firm, niskim przeciętnym wynagrodzeniem oraz najniższym średnim odsetkiem zgonów nowotworowych. Trzecie skupienie zawierające miasta na prawach powiatu cechuje się najwyższymi wartościami wszystkich cech z wyjątkiem stopy bezrobocia.
+
+Następnie przeprowadzamy optymalizację wyłonionych wcześniej skupień metodą k-średnich
+
+```{r}
+set.seed(7)
+ksr <- kmeans(dane_z, 3)
+
+dane_s <- dane_s %>%
+  mutate(ksr3=ksr$cluster)
+
+dane_s %>%
+  select(-teryt, -nazwa, -ward3) %>%
+  group_by(ksr3) %>%
+  summarise_each(funs(mean)) %>%
+  as.data.frame %>%
+  kable
+
+```
+
+Otrzymane wyniki będą bardzo zbliżone. Przynależność do skupień można to sprawdzić tworząc tabelę krzyżową:
+
+```{r}
+table(dane_s$ward3, dane_s$ksr3)
+```
+
+Skupienia zmieniły swoje numery z racji korzystania z różnych metod, jednak analiza zbioru pozwala na identyfikację odpowiadających sobie grup.
+
+## Podsumowanie 
+
+Opisane metody pozwalają na łatwe utworzenie rankingu bądź klasyfikacji analizowanych obiektów ze względu na wiele cech. W przypadku analizy danych przestrzennych możemy uzyskane rezultaty przedstawić na kartogramie wykorzystując program R oraz podkłady dostarczone przez [CODGIK](http://www.codgik.gov.pl/index.php/darmowe-dane.html). 
